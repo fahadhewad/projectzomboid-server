@@ -161,6 +161,11 @@ make rcon CMD="players"              # run an admin command
 
 `make help` lists everything.
 
+> **`start` vs `up -d`.** `docker compose start` resumes stopped containers with
+> the environment they were *created* with, so edits to `.env` are ignored.
+> `docker compose up -d` recreates a container whose config changed, and is a
+> no-op when nothing did — so prefer it after any `.env` edit.
+
 ### Restoring a world
 
 ```bash
