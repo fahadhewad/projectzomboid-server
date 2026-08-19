@@ -166,17 +166,37 @@ make rcon CMD="players"              # run an admin command
 > `docker compose up -d` recreates a container whose config changed, and is a
 > no-op when nothing did — so prefer it after any `.env` edit.
 
-### Restoring a world
+### Listing and restoring backups
+
+Compose prefixes volume names with the project name, which defaults to the
+folder name — so the volumes are `<folder>-data` and `<folder>-backups`, not
+`pz-data` and `pz-backups`. Check yours with `docker volume ls`.
+
+This matters more than it sounds: **`docker run -v` silently creates a volume
+that does not exist**, so a typo'd name mounts a brand new empty one and reports
+success. Prefer the compose form, which reuses the mounts the service already
+has and cannot pick the wrong volume:
+
+```bash
+docker compose run --rm --entrypoint sh pz-backup -c "ls -lh /backups"
+```
+
+To restore, stop the server first — restoring underneath a running server gives
+you a world half from the archive and half from the server's memory. Substitute
+your own volume names from `docker volume ls`:
 
 ```bash
 docker compose stop pz-server
-docker run --rm -v pz-data:/data -v pz-backups:/backups alpine \
-    sh -c "rm -rf /data/Saves && tar -xzf /backups/pzsave_20260819T230000Z.tar.gz -C /data"
+docker run --rm \
+    -v myfolder-data:/data \
+    -v myfolder-backups:/backups \
+    alpine sh -c "rm -rf /data/Saves && tar -xzf /backups/pzsave_20260819T230000Z.tar.gz -C /data"
 docker compose start pz-server
 ```
 
-Stop the server first. Restoring underneath a running server gives you a world
-half from the archive and half from the server's memory.
+Verify the mount is the right one before trusting it: if `ls /backups` inside
+that container is empty, you named a volume that did not exist and Docker just
+created it.
 
 ### Turning on off-box backups
 
