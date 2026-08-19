@@ -331,11 +331,17 @@ A few decisions that are load-bearing, recorded so future-me remembers why.
 at boot. Baking in ~3 GB would mean rebuilding the image for every patch, and
 redistributing game files the licence does not cover.
 
-**The entrypoint ends in `exec`.** That makes the JVM PID 1, so `docker stop`
-sends SIGTERM straight to the game and it saves the world before exiting.
-Without `exec`, the signal stops the shell and the game is killed mid-write.
-Combined with `stop_grace_period: 90s`, this is the difference between a clean
-shutdown and a corrupted save.
+**The entrypoint translates SIGTERM into an RCON `quit`.** The obvious design
+is `exec ./start-server.sh`, making the JVM PID 1 so `docker stop` signals it
+directly. That delivers the signal correctly and accomplishes nothing: PZ does
+not act on SIGTERM, so it runs until the grace period expires and Docker
+SIGKILLs it — exit code 137, world killed mid-write, on every single stop.
+
+So the shell stays as PID 1 and, on SIGTERM, issues the one shutdown PZ honours:
+an RCON `quit`, which saves and exits. It force-kills only if that fails.
+`tests/test_entrypoint_shutdown.sh` pins the behaviour with a stub server that
+ignores SIGTERM exactly like the real one — the original bug was invisible
+without it.
 
 **The backup container mounts the world read-only.** A backup job has no reason
 to be able to write to the thing it is protecting, and `:ro` removes a whole

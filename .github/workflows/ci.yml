@@ -47,7 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck entrypoints
-        run: shellcheck docker/*.sh
+        run: shellcheck docker/*.sh tests/*.sh
+      - name: entrypoint shutdown behaviour
+        run: ./tests/test_entrypoint_shutdown.sh
 
   docker:
     name: Docker build

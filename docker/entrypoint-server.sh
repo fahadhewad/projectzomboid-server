@@ -99,11 +99,74 @@ if [ -n "${PZ_EXTRA_ARGS:-}" ]; then
 fi
 
 cd "${SERVER_DIR}"
-log "starting server '${SERVER_NAME}'"
 
-# exec replaces this shell, so the JVM becomes PID 1 and receives SIGTERM
-# directly from `docker stop`. Without exec the signal would hit bash, bash
-# would exit, and the game would be SIGKILLed mid-write with the world half
-# saved. This one keyword is the difference between clean shutdowns and
-# corrupted saves.
-exec ./start-server.sh "${SERVER_ARGS[@]}"
+# The obvious approach here is `exec ./start-server.sh`, so the JVM becomes
+# PID 1 and takes SIGTERM straight from `docker stop`. That delivers the signal
+# correctly - and achieves nothing, because the Project Zomboid dedicated
+# server does not act on SIGTERM. It keeps running until the stop grace period
+# expires and Docker SIGKILLs it, which shows up as exit code 137 and a world
+# killed mid-write.
+#
+# So this shell stays alive as PID 1 and translates the signal into the only
+# shutdown PZ actually honours: an RCON `quit`, which saves and exits.
+PZ_PID=""
+SHUTDOWN_WAIT="${PZ_SHUTDOWN_WAIT:-120}"
+
+wait_for_exit() {
+    local waited=0
+    while kill -0 "${PZ_PID}" 2>/dev/null; do
+        [ "${waited}" -ge "${SHUTDOWN_WAIT}" ] && return 1
+        sleep 1
+        waited=$((waited + 1))
+    done
+    return 0
+}
+
+shutdown_handler() {
+    trap '' TERM INT  # a second Ctrl-C must not interrupt the save
+
+    if [ -z "${PZ_PID}" ] || ! kill -0 "${PZ_PID}" 2>/dev/null; then
+        return
+    fi
+
+    if [ -n "${PZ_RCON_PASSWORD:-}" ]; then
+        log "shutdown requested; saving and quitting over RCON"
+        RCON_PASSWORD="${PZ_RCON_PASSWORD}" \
+        PZOPS__RCON__HOST=127.0.0.1 \
+        PZOPS__RCON__PORT="${PZ_RCON_PORT:-27015}" \
+            python3 -m pzops rcon quit || log "RCON quit failed"
+    else
+        log "shutdown requested but no RCON password; cannot ask PZ to quit cleanly"
+    fi
+
+    if wait_for_exit; then
+        log "server exited cleanly"
+        return
+    fi
+
+    # RCON did not work or the save is taking too long. SIGTERM is useless
+    # here, so escalate rather than let Docker's grace period run out.
+    log "server still running after ${SHUTDOWN_WAIT}s; forcing it down"
+    kill -KILL "${PZ_PID}" 2>/dev/null || true
+}
+
+trap shutdown_handler TERM INT
+
+log "starting server '${SERVER_NAME}'"
+./start-server.sh "${SERVER_ARGS[@]}" &
+PZ_PID=$!
+
+# `wait` returns early when a trap fires, so loop until the child is really
+# gone. The `|| EXIT_CODE=$?` matters: under `set -e` a non-zero wait would
+# otherwise abort this script before the exit code could be reported.
+EXIT_CODE=0
+while kill -0 "${PZ_PID}" 2>/dev/null; do
+    EXIT_CODE=0
+    wait "${PZ_PID}" || EXIT_CODE=$?
+    # 127 means the child was already reaped; anything else with the process
+    # gone is a real exit status.
+    [ "${EXIT_CODE}" -eq 127 ] && EXIT_CODE=0
+done
+
+log "server process exited with code ${EXIT_CODE}"
+exit "${EXIT_CODE}"
