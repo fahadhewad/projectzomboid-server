@@ -56,3 +56,35 @@ def test_rcon_reports_an_unreachable_server_without_a_traceback(monkeypatch, cap
 
     assert cli.main(["rcon", "players"]) == 3
     assert "still" in caplog.text and "docker compose logs" in caplog.text
+
+
+def _fake_collection(monkeypatch, ids):
+    from pzops import workshop
+
+    monkeypatch.setattr(workshop, "fetch_collection", lambda c, **k: list(ids))
+    monkeypatch.setattr(
+        workshop,
+        "fetch_details",
+        lambda i, **k: [{"publishedfileid": x, "result": 1, "consumer_app_id": 108600} for x in i],
+    )
+
+
+def test_workshop_exclude_drops_the_item_and_its_mods(tmp_path, monkeypatch, capsys):
+    """A version-mismatched mod must leave both lists, not just WorkshopItems."""
+    _fake_collection(monkeypatch, ["100", "200"])
+    content = tmp_path / "content"
+    for wid, mod in (("100", "KeepMe"), ("200", "DropMe")):
+        d = content / wid / "mods" / mod
+        d.mkdir(parents=True)
+        (d / "mod.info").write_text(f"name={mod}\nid={mod}\n")
+
+    assert (
+        cli.main(
+            ["workshop", "--collection", "1", "--workshop-dir", str(content), "--exclude", "200"]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "PZ_WORKSHOP_ITEMS=100\n" in out
+    assert "PZ_MODS=KeepMe\n" in out
+    assert "DropMe" not in out and "200" not in out

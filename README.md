@@ -244,6 +244,16 @@ docker compose exec pz-server python3 -m pzops workshop \
     --workshop-dir /opt/pzserver/steamapps/workshop/content/108600
 ```
 
+Drop a mod that is broken or version-mismatched against clients with
+`--exclude`, repeatable — it leaves both lists, so you never hand-edit a
+300-entry string:
+
+```bash
+pzops workshop --collection 3773856464 \
+    --workshop-dir /opt/pzserver/steamapps/workshop/content/108600 \
+    --exclude 3717099183
+```
+
 Step 3 reads each mod's own `mod.info` rather than scraping Workshop
 descriptions. That matters: on a real 287-mod collection, description-scraping
 left 6 mods with no stated ID and 33 declaring several with no way to tell

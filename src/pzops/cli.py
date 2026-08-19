@@ -139,9 +139,24 @@ def cmd_workshop(args: argparse.Namespace, cfg: config_module.Config) -> int:
             )
             workshop_ids = [i for i in workshop_ids if i not in set(foreign)]
 
+    excluded = set(args.exclude or [])
+    if excluded:
+        kept = [i for i in workshop_ids if i not in excluded]
+        if workshop_ids:
+            log.info(
+                "excluding %d item(s): %s",
+                len(workshop_ids) - len(kept),
+                ", ".join(sorted(excluded)),
+            )
+        workshop_ids = kept
+
     mods: list[workshop_module.ModInfo] = []
     if args.workshop_dir:
         scanned = workshop_module.scan_workshop(args.workshop_dir)
+        # Drop excluded items here too, or their mods reappear via the
+        # "downloaded but not in the collection" path in order_mods.
+        for item in excluded:
+            scanned.pop(item, None)
         log.info("scanned %d downloaded Workshop item(s)", len(scanned))
         mods = workshop_module.order_mods(workshop_ids or sorted(scanned), scanned)
         log.info("found %d loadable mod(s)", len(mods))
@@ -245,6 +260,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="downloaded Workshop content dir, to read real mod IDs from "
         "mod.info (e.g. /opt/pzserver/steamapps/workshop/content/108600)",
+    )
+    shop.add_argument(
+        "--exclude",
+        action="append",
+        metavar="ID",
+        help="Workshop ID to leave out; repeatable. Use for a mod that "
+        "is broken or version-mismatched against clients",
     )
     shop.add_argument("-o", "--output", metavar="FILE", help="write to a file instead of stdout")
     shop.set_defaults(func=cmd_workshop)
