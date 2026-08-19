@@ -32,9 +32,7 @@ def render(text: str, values: dict[str, str]) -> str:
 
     result = PLACEHOLDER.sub(substitute, text)
     if missing:
-        raise MissingVariableError(
-            "unset template variables: " + ", ".join(sorted(set(missing)))
-        )
+        raise MissingVariableError("unset template variables: " + ", ".join(sorted(set(missing))))
     return result
 
 
@@ -50,8 +48,13 @@ def render_file(src: Path, dest: Path, values: dict[str, str], overwrite: bool =
     return True
 
 
-def render_tree(src_dir: Path, dest_dir: Path, values: dict[str, str],
-                overwrite: bool = True, suffix: str = ".tmpl") -> list[Path]:
+def render_tree(
+    src_dir: Path,
+    dest_dir: Path,
+    values: dict[str, str],
+    overwrite: bool = True,
+    suffix: str = ".tmpl",
+) -> list[Path]:
     """Render every ``*.tmpl`` in ``src_dir`` into ``dest_dir``, dropping the suffix."""
     written: list[Path] = []
     for template in sorted(src_dir.glob(f"*{suffix}")):

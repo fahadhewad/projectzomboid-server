@@ -10,7 +10,8 @@ import sys
 import threading
 from pathlib import Path
 
-from . import __version__, config as config_module
+from . import __version__
+from . import config as config_module
 from .backup import run_backup
 from .cloud import RcloneTarget
 from .rcon import RconClient, try_command
@@ -34,8 +35,11 @@ def _announcer(cfg: config_module.Config):
 
     def announce(text: str) -> None:
         try_command(
-            cfg.get("rcon.host"), int(cfg.get("rcon.port")), password,
-            f'servermsg "{text}"', float(cfg.get("rcon.timeout_seconds", 5.0)),
+            cfg.get("rcon.host"),
+            int(cfg.get("rcon.port")),
+            password,
+            f'servermsg "{text}"',
+            float(cfg.get("rcon.timeout_seconds", 5.0)),
         )
 
     return announce
@@ -88,7 +92,8 @@ def cmd_backup(args: argparse.Namespace, cfg: config_module.Config) -> int:
             result.duration_seconds,
             f" -> {result.remote_path}" if result.remote_path else " [local only]",
             f" pruned {len(result.pruned_local)} local/{len(result.pruned_remote)} remote"
-            if result.pruned_local or result.pruned_remote else "",
+            if result.pruned_local or result.pruned_remote
+            else "",
         )
         if announce is not None:
             announce(f"World backed up: {result.path.name}")
@@ -111,14 +116,19 @@ def cmd_rcon(args: argparse.Namespace, cfg: config_module.Config) -> int:
     if not password:
         log.error("no RCON password set (%s is empty)", cfg.get("rcon.password_env"))
         return 2
-    with RconClient(cfg.get("rcon.host"), int(cfg.get("rcon.port")), password,
-                    float(cfg.get("rcon.timeout_seconds", 5.0))) as client:
+    with RconClient(
+        cfg.get("rcon.host"),
+        int(cfg.get("rcon.port")),
+        password,
+        float(cfg.get("rcon.timeout_seconds", 5.0)),
+    ) as client:
         print(client.command(" ".join(args.command)))
     return 0
 
 
 def _install_signal_handlers(stop: threading.Event) -> None:
     """Stop the daemon loop on SIGTERM/SIGINT so `docker compose down` is clean."""
+
     def handler(signum: int, _frame: object) -> None:
         log.info("received signal %s, shutting down", signum)
         stop.set()
@@ -137,8 +147,11 @@ def build_parser() -> argparse.ArgumentParser:
     render = sub.add_parser("render-config", help="render server config templates from env")
     render.add_argument("--templates", default="/templates")
     render.add_argument("--dest", default="/data/Server")
-    render.add_argument("--no-overwrite", action="store_true",
-                        help="keep hand-edits: only create files that do not exist yet")
+    render.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="keep hand-edits: only create files that do not exist yet",
+    )
     render.set_defaults(func=cmd_render_config)
 
     backup = sub.add_parser("backup", help="create a timestamped save archive")

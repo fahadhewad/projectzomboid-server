@@ -21,8 +21,13 @@ class CloudError(RuntimeError):
 
 
 class RcloneTarget:
-    def __init__(self, remote: str, binary: str = "rclone",
-                 extra_args: list[str] | None = None, timeout: float = 1800.0) -> None:
+    def __init__(
+        self,
+        remote: str,
+        binary: str = "rclone",
+        extra_args: list[str] | None = None,
+        timeout: float = 1800.0,
+    ) -> None:
         self.remote = remote.rstrip("/")
         self.binary = binary
         self.extra_args = list(extra_args or [])
@@ -37,8 +42,9 @@ class RcloneTarget:
         log.debug("rclone: %s", " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout)
         if result.returncode != 0:
-            raise CloudError(f"{' '.join(cmd)} failed ({result.returncode}): "
-                             f"{result.stderr.strip()}")
+            raise CloudError(
+                f"{' '.join(cmd)} failed ({result.returncode}): {result.stderr.strip()}"
+            )
         return result
 
     def upload(self, path: Path) -> str:

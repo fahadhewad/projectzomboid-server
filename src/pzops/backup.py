@@ -11,7 +11,7 @@ import logging
 import tarfile
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .cloud import CloudError, RcloneTarget
@@ -22,8 +22,8 @@ TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
 
 def timestamp(now: datetime | None = None) -> str:
-    now = now or datetime.now(timezone.utc)
-    return now.astimezone(timezone.utc).strftime(TIMESTAMP_FORMAT)
+    now = now or datetime.now(UTC)
+    return now.astimezone(UTC).strftime(TIMESTAMP_FORMAT)
 
 
 def archive_name(prefix: str, now: datetime | None = None) -> str:
