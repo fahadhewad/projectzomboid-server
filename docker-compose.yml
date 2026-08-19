@@ -1,0 +1,95 @@
+# Two containers, one shared data volume.
+#
+#   pz-server  runs the game
+#   pz-backup  archives the world on a timer
+#
+# Split because they fail independently: a crashed backup job must never take
+# players offline, and a game restart must never interrupt an upload.
+
+services:
+  pz-server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+    image: pzserver:local
+    container_name: pz-server
+    restart: unless-stopped
+    stop_grace_period: 90s  # PZ saves the world on shutdown; do not rush it
+    ports:
+      - "${PZ_PORT:-16261}:16261/udp"
+      - "${PZ_PORT_DIRECT:-16262}:16262/udp"
+      # RCON stays on the internal network by default. Publish it only if you
+      # need admin access from outside the host, and then only over a VPN.
+      # - "127.0.0.1:${PZ_RCON_PORT:-27015}:27015/tcp"
+    volumes:
+      - pz-data:/data
+    environment:
+      PZ_SERVER_NAME: ${PZ_SERVER_NAME:-servertest}
+      PZ_ADMIN_USERNAME: ${PZ_ADMIN_USERNAME:-admin}
+      PZ_ADMIN_PASSWORD: ${PZ_ADMIN_PASSWORD:?set PZ_ADMIN_PASSWORD in .env}
+      PZ_CONFIG_OVERWRITE: ${PZ_CONFIG_OVERWRITE:-0}
+      PZ_SKIP_UPDATE: ${PZ_SKIP_UPDATE:-0}
+      PZ_EXTRA_ARGS: ${PZ_EXTRA_ARGS:-}
+      # Consumed by the config template at render time.
+      PZ_PUBLIC_NAME: ${PZ_PUBLIC_NAME:-A Zomboid Server}
+      PZ_PUBLIC_DESCRIPTION: ${PZ_PUBLIC_DESCRIPTION:-}
+      PZ_SERVER_PASSWORD: ${PZ_SERVER_PASSWORD:-}
+      PZ_MAX_PLAYERS: ${PZ_MAX_PLAYERS:-8}
+      PZ_PUBLIC: ${PZ_PUBLIC:-false}
+      PZ_PAUSE_EMPTY: ${PZ_PAUSE_EMPTY:-true}
+      PZ_MODS: ${PZ_MODS:-}
+      PZ_WORKSHOP_ITEMS: ${PZ_WORKSHOP_ITEMS:-}
+      PZ_RCON_PORT: ${PZ_RCON_PORT:-27015}
+      PZ_RCON_PASSWORD: ${PZ_RCON_PASSWORD:?set PZ_RCON_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+    # A modded server is memory-hungry; an unbounded JVM will happily take the
+    # whole host down with it.
+    deploy:
+      resources:
+        limits:
+          memory: ${PZ_MEMORY_LIMIT:-8g}
+
+  pz-backup:
+    build:
+      context: .
+      dockerfile: docker/ops.Dockerfile
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+    image: pzops:local
+    container_name: pz-backup
+    restart: unless-stopped
+    depends_on:
+      - pz-server
+    volumes:
+      # Read-only: a backup job should never be able to damage the thing it is
+      # backing up. This is a one-word guarantee against a whole class of bug.
+      - pz-data:/data:ro
+      - pz-backups:/backups
+      # Only needed if cloud upload is enabled. Create with: rclone config
+      - ${RCLONE_CONFIG_DIR:-./rclone}:/home/pzops/.config/rclone:ro
+    environment:
+      TZ: ${TZ:-UTC}
+      RCON_PASSWORD: ${PZ_RCON_PASSWORD:?set PZ_RCON_PASSWORD in .env}
+      # pzops config, section__key. See src/pzops/config.py for every knob.
+      PZOPS__BACKUP__SOURCE_DIR: /data/Saves
+      PZOPS__BACKUP__STAGING_DIR: /backups
+      PZOPS__BACKUP__INTERVAL_MINUTES: ${BACKUP_INTERVAL_MINUTES:-60}
+      PZOPS__BACKUP__KEEP_LOCAL: ${BACKUP_KEEP_LOCAL:-24}
+      PZOPS__BACKUP__NAME_PREFIX: ${BACKUP_PREFIX:-pzsave}
+      PZOPS__BACKUP__ANNOUNCE: ${BACKUP_ANNOUNCE:-true}
+      PZOPS__BACKUP__CLOUD__ENABLED: ${BACKUP_CLOUD_ENABLED:-false}
+      PZOPS__BACKUP__CLOUD__RCLONE_REMOTE: ${BACKUP_CLOUD_REMOTE:-}
+      PZOPS__BACKUP__CLOUD__KEEP_REMOTE: ${BACKUP_CLOUD_KEEP:-168}
+      # Reach the game server by service name on the private compose network.
+      PZOPS__RCON__HOST: pz-server
+      PZOPS__RCON__PORT: ${PZ_RCON_PORT:-27015}
+
+volumes:
+  pz-data:
+    name: ${COMPOSE_PROJECT_NAME:-pz}-data
+  pz-backups:
+    name: ${COMPOSE_PROJECT_NAME:-pz}-backups

@@ -1,0 +1,32 @@
+# Optional. Everything here has a default in src/pzops/config.py, and compose
+# sets these via PZOPS__SECTION__KEY environment variables instead. Use this
+# file only if you would rather keep settings in one readable place.
+#
+#   pzops --config config/pzops.toml backup
+
+[server]
+data_dir = "/data"
+
+[rcon]
+host = "pz-server"
+port = 27015
+# The name of the environment variable holding the password — never the
+# password itself. Config files get committed by accident; env vars do not.
+password_env = "RCON_PASSWORD"
+timeout_seconds = 5.0
+
+[backup]
+source_dir = "/data/Saves"
+staging_dir = "/backups"
+interval_minutes = 60
+keep_local = 24
+name_prefix = "pzsave"
+announce = true
+
+[backup.cloud]
+enabled = false
+# Any rclone remote, e.g. "gdrive:pz-backups" or "b2:my-bucket/pz".
+rclone_remote = ""
+rclone_binary = "rclone"
+keep_remote = 168
+extra_args = []

@@ -19,3 +19,7 @@ htmlcov/
 # Local secrets
 .env
 config/pzops.toml
+
+# rclone credentials — created by `rclone config`
+/rclone/*
+!/rclone/.gitkeep

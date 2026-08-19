@@ -1,0 +1,43 @@
+# Rendered by `pzops render-config` from environment variables at container boot.
+# Do not edit in place unless PZ_CONFIG_OVERWRITE=0 (the default) — otherwise
+# your changes are overwritten on the next restart. Edit .env instead.
+
+PublicName=${PZ_PUBLIC_NAME:-A Zomboid Server}
+PublicDescription=${PZ_PUBLIC_DESCRIPTION:-}
+Public=${PZ_PUBLIC:-false}
+
+DefaultPort=16261
+UDPPort=16262
+MaxPlayers=${PZ_MAX_PLAYERS:-8}
+Password=${PZ_SERVER_PASSWORD:-}
+
+RCONPort=${PZ_RCON_PORT:-27015}
+RCONPassword=${PZ_RCON_PASSWORD}
+
+# Freeze the world while empty so nothing decays with nobody watching.
+PauseEmpty=${PZ_PAUSE_EMPTY:-true}
+
+# Mod load order. Mods= holds internal mod IDs, WorkshopItems= the numeric
+# Workshop IDs, and the two lists must correspond entry for entry.
+Mods=${PZ_MODS:-}
+WorkshopItems=${PZ_WORKSHOP_ITEMS:-}
+
+# The server writes its own save on a timer as well; this is PZ's internal
+# autosave, separate from the archive the backup sidecar makes.
+SaveWorldEveryMinutes=${PZ_SAVE_EVERY_MINUTES:-15}
+
+# Anti-cheat and safety defaults suited to a small friends-only server.
+Open=true
+AutoCreateUserInWhiteList=true
+DisplayUserName=true
+GlobalChat=true
+AnnounceDeath=${PZ_ANNOUNCE_DEATH:-true}
+DoLuaChecksum=true
+DenyLoginOnOverloadedServer=true
+LogLocalChat=false
+
+# Backups are handled by the pz-backup sidecar, which produces timestamped,
+# rotated archives outside the container. PZ's own backup-on-start is left on
+# as a cheap extra safety net.
+BackupsOnStart=true
+BackupsCount=5
