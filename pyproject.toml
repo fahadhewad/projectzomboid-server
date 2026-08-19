@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pzops"
+version = "0.1.0"
+description = "Operations tooling for a self-hosted Project Zomboid dedicated server"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+# No runtime dependencies anywhere, including the player-side agent: it publishes
+# a screenshot file the game already wrote, so it never touches a framebuffer.
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+pzops = "pzops.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

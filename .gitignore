@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data — never commit server state
+/data/
+/backups/
+/state/
+/screenshots-repo/
+*.log
+
+# Local secrets
+.env
+config/pzops.toml
