@@ -112,6 +112,10 @@ cd "${SERVER_DIR}"
 PZ_PID=""
 SHUTDOWN_WAIT="${PZ_SHUTDOWN_WAIT:-120}"
 
+# shellcheck disable=SC2317,SC2329  # invoked via trap; shellcheck cannot
+# see that, and reports the body as unreachable / the function as unused.
+# Both codes are listed because shellcheck renamed this check between
+# versions, and CI and local machines will not always agree on which.
 wait_for_exit() {
     local waited=0
     while kill -0 "${PZ_PID}" 2>/dev/null; do
@@ -122,6 +126,10 @@ wait_for_exit() {
     return 0
 }
 
+# shellcheck disable=SC2317,SC2329  # invoked via trap; shellcheck cannot
+# see that, and reports the body as unreachable / the function as unused.
+# Both codes are listed because shellcheck renamed this check between
+# versions, and CI and local machines will not always agree on which.
 shutdown_handler() {
     trap '' TERM INT  # a second Ctrl-C must not interrupt the save
 
