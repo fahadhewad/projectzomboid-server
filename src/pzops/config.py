@@ -50,6 +50,10 @@ class Config:
     """A merged config tree with dotted-path access."""
 
     data: dict[str, Any] = field(default_factory=dict)
+    # The environment this config was built from. Held rather than reaching for
+    # os.environ at lookup time so secret resolution is testable and consistent
+    # with the values that were merged in.
+    environ: dict[str, str] = field(default_factory=lambda: dict(os.environ))
 
     def get(self, path: str, default: Any = None) -> Any:
         node: Any = self.data
@@ -68,7 +72,7 @@ class Config:
         var = self.get(path)
         if not var:
             return default
-        return os.environ.get(str(var), default)
+        return self.environ.get(str(var), default)
 
 
 def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
@@ -126,4 +130,4 @@ def load(path: str | Path | None = None, environ: dict[str, str] | None = None) 
                 data = deep_merge(data, tomllib.load(handle))
         elif path is not None:
             raise FileNotFoundError(f"config file not found: {file_path}")
-    return Config(deep_merge(data, env_overrides(data, environ)))
+    return Config(deep_merge(data, env_overrides(data, environ)), dict(environ))
