@@ -55,7 +55,11 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
 COPY docker/entrypoint-server.sh /usr/local/bin/entrypoint-server.sh
-RUN chmod +x /usr/local/bin/entrypoint-server.sh
+# Strip CR before chmod. .gitattributes pins LF for checkouts, but a clone made
+# before that existed still carries CRLF, and a CRLF shebang makes the kernel
+# hunt for an interpreter named "bash\r" — exit 127 in a restart loop.
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint-server.sh \
+    && chmod +x /usr/local/bin/entrypoint-server.sh
 USER pzserver
 
 COPY --chown=pzserver:pzserver config/templates /templates

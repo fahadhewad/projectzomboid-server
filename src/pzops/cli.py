@@ -83,8 +83,10 @@ def cmd_backup(args: argparse.Namespace, cfg: config_module.Config) -> int:
                 cloud=cloud,
                 keep_remote=int(cloud_cfg.get("keep_remote", 0) or 0),
             )
-        except FileNotFoundError:
-            log.exception("backup failed")
+        except FileNotFoundError as exc:
+            # Normal on first boot: the server has not generated a world yet.
+            # A stack trace here reads like a crash, so say what is happening.
+            log.warning("no backup taken - %s (has the server created a world yet?)", exc)
             return 1
         log.info(
             "backup %s (%.1f MiB in %.1fs)%s%s",

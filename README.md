@@ -131,6 +131,23 @@ Leave 4–8 GB for Windows itself: on a 16 GB machine, `memory=10GB` and
 docker info --format "{{.MemTotal}}"
 ```
 
+**Line endings are pinned to LF** by `.gitattributes`. If you cloned before that
+existed and the server container exits 127 in a loop with
+`/usr/bin/env: 'bash\r': No such file or directory`, Git rewrote the entrypoint
+to CRLF. Renormalize and rebuild:
+
+```powershell
+git pull
+git rm --cached -r .
+git reset --hard
+docker compose build --no-cache pz-server
+docker compose up -d
+```
+
+**`cmd.exe` does not understand `\` line continuations.** Multi-line examples in
+this README are bash; run them as a single line in Command Prompt, or use
+PowerShell with a backtick `` ` `` instead.
+
 `PUID`/`PGID` are Linux-only and can be ignored on Windows.
 
 ### Everyday commands

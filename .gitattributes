@@ -1,0 +1,12 @@
+# Anything that runs inside a Linux container must keep LF endings regardless of
+# the host checking it out. On Windows, Git's autocrlf would otherwise rewrite
+# entrypoint-server.sh to CRLF, making the shebang read "#!/usr/bin/env bash\r"
+# — the kernel then looks for an interpreter literally named "bash\r" and the
+# container dies with exit 127 in a restart loop.
+* text=auto eol=lf
+
+# Never touch binary files.
+*.png -text
+*.jpg -text
+*.gz  -text
+*.zip -text
