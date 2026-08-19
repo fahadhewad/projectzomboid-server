@@ -88,3 +88,53 @@ def test_workshop_exclude_drops_the_item_and_its_mods(tmp_path, monkeypatch, cap
     assert "PZ_WORKSHOP_ITEMS=100\n" in out
     assert "PZ_MODS=KeepMe\n" in out
     assert "DropMe" not in out and "200" not in out
+
+
+def test_workshop_exclude_mod_keeps_the_download_but_drops_the_mod(tmp_path, monkeypatch, capsys):
+    """One item can ship alternatives that collide; drop one without losing the item."""
+    _fake_collection(monkeypatch, ["100"])
+    base = content = tmp_path / "content"
+    for mod in ("DarkWpnSlings", "InvisibleWpnSlings"):
+        d = base / "100" / "mods" / mod
+        d.mkdir(parents=True)
+        (d / "mod.info").write_text(f"name={mod}\nid={mod}\n")
+
+    assert (
+        cli.main(
+            [
+                "workshop",
+                "--collection",
+                "1",
+                "--workshop-dir",
+                str(content),
+                "--exclude-mod",
+                "InvisibleWpnSlings",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    # The Workshop item stays, so the surviving variant still has its files.
+    assert "PZ_WORKSHOP_ITEMS=100\n" in out
+    assert "PZ_MODS=DarkWpnSlings\n" in out
+    assert "InvisibleWpnSlings" not in out
+
+
+def test_workshop_warns_about_an_unknown_mod_id(tmp_path, monkeypatch, caplog):
+    _fake_collection(monkeypatch, ["100"])
+    d = tmp_path / "content" / "100" / "mods" / "RealMod"
+    d.mkdir(parents=True)
+    (d / "mod.info").write_text("name=RealMod\nid=RealMod\n")
+
+    cli.main(
+        [
+            "workshop",
+            "--collection",
+            "1",
+            "--workshop-dir",
+            str(tmp_path / "content"),
+            "--exclude-mod",
+            "TypoMod",
+        ]
+    )
+    assert "no such mod ID" in caplog.text

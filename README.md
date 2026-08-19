@@ -274,6 +274,20 @@ pzops workshop --collection 3773856464 \
     --exclude 3717099183
 ```
 
+One Workshop item can also ship mods that are *alternatives* rather than
+additions — two variants of one feature that crash if both load, which
+`mod.info` gives no way to express. Drop one by mod ID, keeping the item
+downloaded so the other variant still has its files:
+
+```bash
+pzops workshop --collection 3773856464 \
+    --workshop-dir /opt/pzserver/steamapps/workshop/content/108600 \
+    --exclude-mod InvisibleWpnSlings
+```
+
+Symptom to watch for: `IllegalArgumentException: Tried to register duplicate
+object` in the client or server log names the colliding registry entry.
+
 Step 3 reads each mod's own `mod.info` rather than scraping Workshop
 descriptions. That matters: on a real 287-mod collection, description-scraping
 left 6 mods with no stated ID and 33 declaring several with no way to tell

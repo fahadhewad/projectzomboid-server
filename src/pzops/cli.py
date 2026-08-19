@@ -159,6 +159,27 @@ def cmd_workshop(args: argparse.Namespace, cfg: config_module.Config) -> int:
             scanned.pop(item, None)
         log.info("scanned %d downloaded Workshop item(s)", len(scanned))
         mods = workshop_module.order_mods(workshop_ids or sorted(scanned), scanned)
+
+        # One Workshop item can ship mods that are alternatives rather than
+        # additions - two variants of the same feature that collide if both
+        # load. mod.info cannot express that, so it takes a per-mod opt-out.
+        dropped_mods = set(args.exclude_mod or [])
+        if dropped_mods:
+            before = len(mods)
+            mods = [m for m in mods if m.mod_id not in dropped_mods]
+            log.info(
+                "excluding %d mod(s) by mod ID: %s",
+                before - len(mods),
+                ", ".join(sorted(dropped_mods)),
+            )
+            missing_mods = dropped_mods - {
+                m.mod_id
+                for m in workshop_module.order_mods(workshop_ids or sorted(scanned), scanned)
+            }
+            if missing_mods:
+                log.warning(
+                    "no such mod ID in this collection: %s", ", ".join(sorted(missing_mods))
+                )
         log.info("found %d loadable mod(s)", len(mods))
         if workshop_ids:
             missing = [i for i in workshop_ids if i not in scanned]
@@ -267,6 +288,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID",
         help="Workshop ID to leave out; repeatable. Use for a mod that "
         "is broken or version-mismatched against clients",
+    )
+    shop.add_argument(
+        "--exclude-mod",
+        action="append",
+        metavar="MOD_ID",
+        help="mod ID to leave out of Mods=, keeping the Workshop item "
+        "downloaded; repeatable. Use when one item ships mutually "
+        "exclusive variants",
     )
     shop.add_argument("-o", "--output", metavar="FILE", help="write to a file instead of stdout")
     shop.set_defaults(func=cmd_workshop)
