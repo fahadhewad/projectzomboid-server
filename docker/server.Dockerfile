@@ -47,10 +47,12 @@ COPY --chown=pzserver:pzserver pyproject.toml /opt/pzops/pyproject.toml
 COPY --chown=pzserver:pzserver src /opt/pzops/src
 ENV PYTHONPATH=/opt/pzops/src
 
-# Python is only needed for config rendering here, so install the interpreter
-# without pip's dependency machinery.
+# Python is only needed for config rendering here, so the interpreter goes in
+# without pip. Note this is python3, NOT python3-minimal: Debian's minimal
+# package omits most of the standard library (argparse, tomllib, tarfile), so
+# pzops would fail on import at boot.
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends python3-minimal \
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
 COPY docker/entrypoint-server.sh /usr/local/bin/entrypoint-server.sh
 RUN chmod +x /usr/local/bin/entrypoint-server.sh
@@ -68,7 +70,11 @@ WORKDIR /opt/pzserver
 # world to disk. PZ saves on shutdown; killing it early is how saves corrupt.
 STOPSIGNAL SIGTERM
 
-HEALTHCHECK --interval=60s --timeout=10s --start-period=300s --retries=3 \
-    CMD pgrep -f ProjectZomboid > /dev/null || exit 1
+# Liveness only: this says the server process is alive, not that players can
+# connect. The start period is generous because the first boot downloads ~3 GB
+# from Steam before the game process exists at all.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=600s --retries=3 \
+    CMD pgrep -f "zombie.network.GameServer" > /dev/null \
+        || pgrep -x java > /dev/null || exit 1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint-server.sh"]

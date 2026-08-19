@@ -44,20 +44,27 @@ fi
 # 2. Render the server config
 # ---------------------------------------------------------------------------
 # PZ keeps config next to the saves, both under the data volume, so the config
-# survives an image rebuild. --no-overwrite means a file you have hand-edited in
-# game or on disk is left alone; delete it to get a freshly rendered one.
+# survives an image rebuild. PZ names the file after the server, so render into
+# a scratch directory first and place it under the final name — rendering
+# straight into place would recreate servertest.ini on every boot once the file
+# had been renamed, and .env edits would silently stop applying.
 mkdir -p "${DATA_DIR}/Server"
-RENDER_ARGS=(--templates "${TEMPLATE_DIR}" --dest "${DATA_DIR}/Server")
-if [ "${PZ_CONFIG_OVERWRITE:-0}" != "1" ]; then
-    RENDER_ARGS+=(--no-overwrite)
-fi
+STAGE_DIR="$(mktemp -d)"
+trap 'rm -rf "${STAGE_DIR}"' EXIT
 
 log "rendering server config into ${DATA_DIR}/Server"
-python3 -m pzops render-config "${RENDER_ARGS[@]}"
+python3 -m pzops render-config --templates "${TEMPLATE_DIR}" --dest "${STAGE_DIR}"
 
-# PZ expects the config named after the server, e.g. servertest.ini.
-if [ -f "${DATA_DIR}/Server/servertest.ini" ] && [ "${SERVER_NAME}" != "servertest" ]; then
-    mv -n "${DATA_DIR}/Server/servertest.ini" "${DATA_DIR}/Server/${SERVER_NAME}.ini"
+TARGET="${DATA_DIR}/Server/${SERVER_NAME}.ini"
+if [ ! -f "${TARGET}" ]; then
+    cp "${STAGE_DIR}/servertest.ini" "${TARGET}"
+    log "created ${TARGET}"
+elif [ "${PZ_CONFIG_OVERWRITE:-0}" = "1" ]; then
+    cp "${STAGE_DIR}/servertest.ini" "${TARGET}"
+    log "overwrote ${TARGET} from .env (PZ_CONFIG_OVERWRITE=1)"
+else
+    # Default: never clobber a file edited by hand or by an in-game admin.
+    log "keeping existing ${TARGET} (set PZ_CONFIG_OVERWRITE=1 to regenerate)"
 fi
 
 # ---------------------------------------------------------------------------
