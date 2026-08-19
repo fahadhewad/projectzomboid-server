@@ -34,7 +34,13 @@ AutoCreateUserInWhiteList=true
 DisplayUserName=true
 GlobalChat=true
 AnnounceDeath=${PZ_ANNOUNCE_DEATH:-true}
-DoLuaChecksum=true
+# Rejects clients whose mod Lua differs from the server's. It is a genuine
+# safety check - it stops modified Lua running and catches version drift that
+# would otherwise show up as desync. But on a large mod list it also rejects
+# players over a single mod the server has not re-downloaded yet.
+# Set PZ_LUA_CHECKSUM=false only on a server where you trust every player, and
+# understand you are trading a real mismatch warning for the ability to join.
+DoLuaChecksum=${PZ_LUA_CHECKSUM:-true}
 DenyLoginOnOverloadedServer=true
 LogLocalChat=false
 

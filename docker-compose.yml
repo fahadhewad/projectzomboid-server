@@ -46,6 +46,7 @@ services:
       PZ_MAX_PLAYERS: ${PZ_MAX_PLAYERS:-8}
       PZ_PUBLIC: ${PZ_PUBLIC:-false}
       PZ_PAUSE_EMPTY: ${PZ_PAUSE_EMPTY:-true}
+      PZ_LUA_CHECKSUM: ${PZ_LUA_CHECKSUM:-true}
       PZ_MODS: ${PZ_MODS:-}
       PZ_WORKSHOP_ITEMS: ${PZ_WORKSHOP_ITEMS:-}
       PZ_RCON_PORT: ${PZ_RCON_PORT:-27015}
