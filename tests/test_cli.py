@@ -45,3 +45,14 @@ def test_backup_reports_failure_when_the_world_is_missing(tmp_path, monkeypatch)
 def test_rcon_without_a_password_exits_with_a_clear_code(monkeypatch):
     monkeypatch.delenv("RCON_PASSWORD", raising=False)
     assert cli.main(["rcon", "players"]) == 2
+
+
+def test_rcon_reports_an_unreachable_server_without_a_traceback(monkeypatch, caplog):
+    """A server still loading mods is the common case; it must not look like a crash."""
+    monkeypatch.setenv("RCON_PASSWORD", "secret")
+    # Port 1 is reserved and refuses immediately.
+    monkeypatch.setenv("PZOPS__RCON__PORT", "1")
+    monkeypatch.setenv("PZOPS__RCON__TIMEOUT_SECONDS", "1")
+
+    assert cli.main(["rcon", "players"]) == 3
+    assert "still" in caplog.text and "docker compose logs" in caplog.text

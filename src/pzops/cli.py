@@ -15,7 +15,7 @@ from . import config as config_module
 from . import workshop as workshop_module
 from .backup import run_backup
 from .cloud import RcloneTarget
-from .rcon import RconClient, try_command
+from .rcon import RconAuthError, RconClient, RconError, try_command
 from .template import render_tree
 
 log = logging.getLogger("pzops")
@@ -178,13 +178,27 @@ def cmd_rcon(args: argparse.Namespace, cfg: config_module.Config) -> int:
     if not password:
         log.error("no RCON password set (%s is empty)", cfg.get("rcon.password_env"))
         return 2
-    with RconClient(
-        cfg.get("rcon.host"),
-        int(cfg.get("rcon.port")),
-        password,
-        float(cfg.get("rcon.timeout_seconds", 5.0)),
-    ) as client:
-        print(client.command(" ".join(args.command)))
+    host, port = cfg.get("rcon.host"), int(cfg.get("rcon.port"))
+    try:
+        with RconClient(
+            host, port, password, float(cfg.get("rcon.timeout_seconds", 5.0))
+        ) as client:
+            print(client.command(" ".join(args.command)))
+    except RconAuthError:
+        log.error("RCON rejected the password - check PZ_RCON_PASSWORD matches the server")
+        return 3
+    except (OSError, RconError) as exc:
+        # The overwhelmingly common cause is a server still loading, which with a
+        # large mod list can take many minutes. A stack trace hides that.
+        log.error(
+            "could not reach RCON at %s:%s (%s). The server is probably still "
+            "starting - mod loading holds RCON down until the world is ready. "
+            "Check with: docker compose logs --tail 20 pz-server",
+            host,
+            port,
+            exc,
+        )
+        return 3
     return 0
 
 
