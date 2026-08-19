@@ -95,6 +95,44 @@ log reads `SERVER STARTED`, friends can connect to your public IP on port 16261.
 Compose refuses to start if `PZ_ADMIN_PASSWORD` or `PZ_RCON_PASSWORD` are unset,
 rather than booting an unprotected server.
 
+### Running on Windows
+
+Two things differ on Windows, both worth knowing before a heavy mod list.
+
+**Docker Desktop must be running.** If `docker compose up -d` fails with
+`open //./pipe/docker_engine: The system cannot find the file specified`, the
+daemon is not up — start Docker Desktop, wait for the tray icon to read
+"Engine running", and retry. `docker version` printing only a `Client:` section
+and no `Server:` means the same thing.
+
+**Docker's memory ceiling is set by WSL 2, not by `PZ_MEMORY_LIMIT`.** On
+Windows, containers run inside a Linux VM, and that VM has its own cap. Asking
+for `16g` when the VM has 8 GB silently gets you 8 GB, which shows up as a
+server that dies part-way through loading mods rather than as a clear error.
+
+Raise it in `C:\Users\<you>\.wslconfig`:
+
+```ini
+[wsl2]
+memory=20GB
+swap=8GB
+```
+
+Then apply it — a Docker Desktop restart alone is not enough:
+
+```powershell
+wsl --shutdown
+```
+
+Leave 4–8 GB for Windows itself: on a 16 GB machine, `memory=10GB` and
+`PZ_MEMORY_LIMIT=8g` is a sane pairing. Check what the VM actually has with:
+
+```powershell
+docker info --format "{{.MemTotal}}"
+```
+
+`PUID`/`PGID` are Linux-only and can be ignored on Windows.
+
 ### Everyday commands
 
 ```bash
