@@ -26,12 +26,18 @@ services:
       # - "127.0.0.1:${PZ_RCON_PORT:-27015}:27015/tcp"
     volumes:
       - pz-data:/data
+      # Game install + downloaded Workshop mods. Separate from the world so a
+      # rebuild does not re-download several GB.
+      - pz-server-files:/opt/pzserver
     environment:
       PZ_SERVER_NAME: ${PZ_SERVER_NAME:-servertest}
       PZ_ADMIN_USERNAME: ${PZ_ADMIN_USERNAME:-admin}
       PZ_ADMIN_PASSWORD: ${PZ_ADMIN_PASSWORD:?set PZ_ADMIN_PASSWORD in .env}
       PZ_CONFIG_OVERWRITE: ${PZ_CONFIG_OVERWRITE:-0}
       PZ_SKIP_UPDATE: ${PZ_SKIP_UPDATE:-0}
+      # Steam branch. Empty = stable. Set for mod sets that need a beta build.
+      PZ_STEAM_BRANCH: ${PZ_STEAM_BRANCH:-}
+      PZ_STEAM_BRANCH_PASSWORD: ${PZ_STEAM_BRANCH_PASSWORD:-}
       PZ_EXTRA_ARGS: ${PZ_EXTRA_ARGS:-}
       # Consumed by the config template at render time.
       PZ_PUBLIC_NAME: ${PZ_PUBLIC_NAME:-A Zomboid Server}
@@ -93,3 +99,5 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-pz}-data
   pz-backups:
     name: ${COMPOSE_PROJECT_NAME:-pz}-backups
+  pz-server-files:
+    name: ${COMPOSE_PROJECT_NAME:-pz}-server-files

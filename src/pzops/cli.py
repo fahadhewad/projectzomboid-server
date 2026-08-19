@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import __version__
 from . import config as config_module
+from . import workshop as workshop_module
 from .backup import run_backup
 from .cloud import RcloneTarget
 from .rcon import RconClient, try_command
@@ -111,6 +112,65 @@ def cmd_backup(args: argparse.Namespace, cfg: config_module.Config) -> int:
     return 0
 
 
+def cmd_workshop(args: argparse.Namespace, cfg: config_module.Config) -> int:
+    """Resolve a collection, and/or read mod IDs out of downloaded mods."""
+    workshop_ids: list[str] = []
+
+    if args.collection:
+        workshop_ids = workshop_module.fetch_collection(args.collection)
+        log.info("collection %s contains %d items", args.collection, len(workshop_ids))
+
+        details = workshop_module.fetch_details(workshop_ids)
+        dead = workshop_module.unresolved(details)
+        foreign = workshop_module.wrong_app(details)
+        if dead:
+            # Left in the list, the server retries an impossible download forever.
+            log.warning(
+                "%d item(s) could not be resolved and were dropped: %s", len(dead), ", ".join(dead)
+            )
+            workshop_ids = [i for i in workshop_ids if i not in set(dead)]
+        if foreign:
+            log.warning(
+                "%d item(s) are not Project Zomboid mods and were dropped: %s",
+                len(foreign),
+                ", ".join(foreign),
+            )
+            workshop_ids = [i for i in workshop_ids if i not in set(foreign)]
+
+    mods: list[workshop_module.ModInfo] = []
+    if args.workshop_dir:
+        scanned = workshop_module.scan_workshop(args.workshop_dir)
+        log.info("scanned %d downloaded Workshop item(s)", len(scanned))
+        mods = workshop_module.order_mods(workshop_ids or sorted(scanned), scanned)
+        log.info("found %d loadable mod(s)", len(mods))
+        if workshop_ids:
+            missing = [i for i in workshop_ids if i not in scanned]
+            if missing:
+                log.warning(
+                    "%d collection item(s) are not downloaded yet: %s",
+                    len(missing),
+                    ", ".join(missing[:10]),
+                )
+
+    items_line, mods_line = workshop_module.format_lines(workshop_ids, mods)
+    output = []
+    if workshop_ids:
+        output.append(items_line)
+    if mods:
+        output.append(mods_line)
+    if not output:
+        log.error("nothing to do: pass --collection and/or --workshop-dir")
+        return 2
+
+    text = "\n".join(output) + "\n"
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        log.info("wrote %s", args.output)
+    else:
+        print(text, end="")
+    return 0
+
+
 def cmd_rcon(args: argparse.Namespace, cfg: config_module.Config) -> int:
     password = cfg.secret("rcon.password_env")
     if not password:
@@ -157,6 +217,21 @@ def build_parser() -> argparse.ArgumentParser:
     backup = sub.add_parser("backup", help="create a timestamped save archive")
     backup.add_argument("--daemon", action="store_true", help="run on the configured interval")
     backup.set_defaults(func=cmd_backup)
+
+    shop = sub.add_parser("workshop", help="turn a Workshop collection into .env lines")
+    shop.add_argument(
+        "--collection",
+        metavar="ID",
+        help="Workshop collection ID to resolve into Workshop item IDs",
+    )
+    shop.add_argument(
+        "--workshop-dir",
+        metavar="DIR",
+        help="downloaded Workshop content dir, to read real mod IDs from "
+        "mod.info (e.g. /opt/pzserver/steamapps/workshop/content/108600)",
+    )
+    shop.add_argument("-o", "--output", metavar="FILE", help="write to a file instead of stdout")
+    shop.set_defaults(func=cmd_workshop)
 
     rcon = sub.add_parser("rcon", help="send one RCON command to the server")
     rcon.add_argument("command", nargs="+")

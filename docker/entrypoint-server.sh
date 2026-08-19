@@ -24,13 +24,24 @@ log() { printf '%s [entrypoint] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$*"; }
 if [ "${PZ_SKIP_UPDATE:-0}" = "1" ]; then
     log "PZ_SKIP_UPDATE=1, skipping SteamCMD"
 else
+    # Mod collections often target a specific build (e.g. Build 42), so the
+    # branch has to be selectable. Empty = Steam's default/stable branch.
+    APP_UPDATE_ARGS=("${STEAM_APP_ID}")
+    if [ -n "${PZ_STEAM_BRANCH:-}" ]; then
+        APP_UPDATE_ARGS+=(-beta "${PZ_STEAM_BRANCH}")
+        if [ -n "${PZ_STEAM_BRANCH_PASSWORD:-}" ]; then
+            APP_UPDATE_ARGS+=(-betapassword "${PZ_STEAM_BRANCH_PASSWORD}")
+        fi
+        log "using Steam branch '${PZ_STEAM_BRANCH}'"
+    fi
+
     log "updating Project Zomboid dedicated server (app ${STEAM_APP_ID})"
     # `validate` repairs a partial download from an interrupted update, which is
     # the usual cause of a server that installs fine but won't boot.
     "${STEAMCMD_DIR}/steamcmd.sh" \
         +force_install_dir "${SERVER_DIR}" \
         +login anonymous \
-        +app_update "${STEAM_APP_ID}" validate \
+        +app_update "${APP_UPDATE_ARGS[@]}" validate \
         +quit
     log "game files up to date"
 fi

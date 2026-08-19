@@ -155,7 +155,8 @@ The most common:
 | `PZ_ADMIN_PASSWORD` | *required* | Admin login. Without it the server blocks on a prompt at boot. |
 | `PZ_RCON_PASSWORD` | *required* | Admin commands and backup announcements. |
 | `PZ_MAX_PLAYERS` | `8` | Player slots. |
-| `PZ_MODS` / `PZ_WORKSHOP_ITEMS` | empty | Mod IDs and Workshop IDs. Order matters; the lists must correspond. |
+| `PZ_MODS` / `PZ_WORKSHOP_ITEMS` | empty | Mod IDs and Workshop IDs. Order matters. Generate them with `pzops workshop`. |
+| `PZ_STEAM_BRANCH` | empty | Steam branch for the server build. Set when a mod set needs a beta build. |
 | `BACKUP_INTERVAL_MINUTES` | `60` | Backup frequency. |
 | `BACKUP_KEEP_LOCAL` | `24` | Archives kept. 24 hourly = one rolling day. |
 | `PZ_MEMORY_LIMIT` | `8g` | JVM ceiling. Raise it for heavy mod lists. |
@@ -164,11 +165,36 @@ The `pzops` tooling has further settings, overridable as
 `PZOPS__SECTION__KEY` environment variables — see `src/pzops/config.py` for the
 full set, or `config/pzops.example.toml` for the file form.
 
+## Installing a Workshop collection
+
+A collection ID is not a mod ID, and the server needs two different lists:
+`WorkshopItems=` (numeric, what Steam downloads) and `Mods=` (internal IDs, what
+the game loads). `pzops workshop` produces both.
+
+```bash
+# 1. Resolve the collection into Workshop IDs, dropping anything delisted
+pzops workshop --collection 3773856464
+
+# 2. Put that line in .env, set PZ_CONFIG_OVERWRITE=1, and boot once so the
+#    server downloads every mod.
+
+# 3. Read the real mod IDs out of what was downloaded
+docker compose exec pz-server python3 -m pzops workshop \
+    --collection 3773856464 \
+    --workshop-dir /opt/pzserver/steamapps/workshop/content/108600
+```
+
+Step 3 reads each mod's own `mod.info` rather than scraping Workshop
+descriptions. That matters: on a real 287-mod collection, description-scraping
+left 6 mods with no stated ID and 33 declaring several with no way to tell
+required from optional. The downloaded files are the only authoritative source.
+
 ## The `pzops` CLI
 
 ```bash
 pzops render-config --templates /templates --dest /data/Server
 pzops backup [--daemon]
+pzops workshop --collection <id> [--workshop-dir DIR]
 pzops rcon players
 ```
 
@@ -178,6 +204,7 @@ pzops rcon players
 | `template.py` | `${VAR}` rendering for the server `.ini` |
 | `backup.py` | Archive creation, naming, rotation |
 | `cloud.py` | rclone upload and remote pruning |
+| `workshop.py` | Collection resolution and mod.info parsing |
 | `rcon.py` | Source RCON client |
 | `cli.py` | Argument parsing and wiring |
 

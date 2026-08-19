@@ -63,7 +63,11 @@ COPY --chown=pzserver:pzserver config/templates /templates
 # 16261 is the game port, 16262 the direct-connect/player channel. Both UDP.
 EXPOSE 16261/udp 16262/udp 27015/tcp
 
-VOLUME ["/data"]
+# Two volumes, not one. /data is the world; /opt/pzserver is the game install
+# plus every downloaded Workshop mod. Without the second one, the container's
+# writable layer holds them, so any image rebuild discards ~3 GB of game and the
+# entire mod set and re-downloads it all on next boot.
+VOLUME ["/data", "/opt/pzserver"]
 WORKDIR /opt/pzserver
 
 # The JVM ignores SIGTERM's default disposition, so give it room to flush the
