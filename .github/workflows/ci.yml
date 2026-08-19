@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push makes an in-flight run pointless; cancel it rather than queueing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - name: ruff check
+        run: ruff check src tests
+      - name: ruff format check
+        run: ruff format --check src tests
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor (tomllib landed there); 3.12 guards against rot.
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest -v
+
+  shellcheck:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck entrypoints
+        run: shellcheck docker/*.sh
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: docker compose config --quiet
+        env:
+          # compose refuses to parse without the required secrets present.
+          PZ_ADMIN_PASSWORD: ci-placeholder
+          PZ_RCON_PASSWORD: ci-placeholder
+      - name: Build ops image
+        # The game server image pulls ~3 GB from Steam at runtime, so CI builds
+        # only the sidecar. The compose validation above still covers both.
+        run: docker build -f docker/ops.Dockerfile -t pzops:ci .
+      - name: Smoke test the CLI in the built image
+        run: docker run --rm pzops:ci --version
